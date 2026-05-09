@@ -1440,14 +1440,20 @@ th {
 
 /* Acciones de la tarjeta */
 .disponible-tarjeta-acciones {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
     gap: 0.6rem;
-    flex-wrap: wrap;
     margin-top: auto;
 }
 
+.disponible-tarjeta-acciones form {
+    display: contents;
+}
+
 .btn-tarjeta-accion {
-    flex: 1;
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
     text-align: center;
     font-size: 0.88rem;
     padding: 0.5rem 0.75rem;
@@ -1674,7 +1680,7 @@ th {
    =================================================== */
 .inventario-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
     gap: 1.25rem;
     margin-bottom: 1.5rem;
 }
