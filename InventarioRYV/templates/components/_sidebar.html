@@ -1,5 +1,5 @@
 {% with vn=request.resolver_match.view_name %}
-<aside class="sidebar" role="navigation" aria-label="Menú principal">
+<aside class="sidebar" id="sidebar-menu" role="navigation" aria-label="Menú principal">
     <nav class="sidebar-nav">
         {% if request.user.es_administrador %}
             <div class="sidebar-seccion">
