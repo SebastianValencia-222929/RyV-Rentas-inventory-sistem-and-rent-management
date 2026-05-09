@@ -149,53 +149,25 @@
     overflow: hidden;
   }
 
-  .hero-bg-lines {
+  /* --- HERO MESH CANVAS --- */
+  .hero-canvas {
     position: absolute;
     inset: 0;
-    overflow: hidden;
-  }
-
-  .hero-bg-lines::before,
-  .hero-bg-lines::after {
-    content: '';
-    position: absolute;
-    background: linear-gradient(180deg, transparent, rgba(212,168,67,0.04), transparent);
-  }
-
-  .hero-bg-lines::before {
-    width: 1px;
+    width: 100%;
     height: 100%;
-    left: 25%;
-    animation: lineReveal 2s ease forwards;
+    z-index: 0;
+    display: block;
   }
 
-  .hero-bg-lines::after {
-    width: 1px;
-    height: 100%;
-    right: 25%;
-    animation: lineReveal 2s 0.3s ease forwards;
-  }
-
-  @keyframes lineReveal {
-    from { transform: scaleY(0); transform-origin: top; }
-    to { transform: scaleY(1); transform-origin: top; }
-  }
-
-  .hero-glow {
+  /* Vignette overlay for better text contrast */
+  .hero-vignette {
     position: absolute;
-    width: 600px;
-    height: 600px;
-    border-radius: 50%;
-    background: radial-gradient(circle, rgba(212,168,67,0.06) 0%, transparent 70%);
-    right: -100px;
-    top: 50%;
-    transform: translateY(-50%);
-    animation: glowPulse 6s ease-in-out infinite;
-  }
-
-  @keyframes glowPulse {
-    0%, 100% { opacity: 0.5; transform: translateY(-50%) scale(1); }
-    50% { opacity: 1; transform: translateY(-50%) scale(1.1); }
+    inset: 0;
+    z-index: 1;
+    background:
+      radial-gradient(ellipse 80% 60% at 50% 50%, transparent 40%, rgba(10,10,10,0.5) 100%),
+      linear-gradient(to bottom, rgba(10,10,10,0.4) 0%, transparent 30%, transparent 70%, rgba(10,10,10,0.6) 100%);
+    pointer-events: none;
   }
 
   .hero-content {
@@ -946,7 +918,8 @@
 
 <!-- HERO -->
 <section class="hero">
-  <div class="hero-bg-lines"></div>
+  <canvas id="hero-canvas" class="hero-canvas"></canvas>
+  <div class="hero-vignette"></div>
   <div class="hero-content">
     <div class="hero-tag">Renta de Maquinaria de Construcción</div>
     <h1>CONSTRUYE<br>EN <span>GRANDE</span></h1>
@@ -1252,6 +1225,69 @@
   } catch(e) {
     revealAll();
   }
+
+  // Hero mesh gradient
+  (function() {
+    const canvas = document.getElementById('hero-canvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+
+    function resize() {
+      canvas.width = canvas.offsetWidth;
+      canvas.height = canvas.offsetHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    // Orbs: gold/black palette matching --accent and --accent-dark
+    const orbs = [
+      { px: 0.80, py: 0.20, vx:  0.00014, vy:  0.00010, size: 0.62, color: [212, 168,  67], opacity: 0.22 },
+      { px: 0.20, py: 0.72, vx: -0.00011, vy:  0.00016, size: 0.52, color: [184, 145,  46], opacity: 0.18 },
+      { px: 0.55, py: 0.45, vx:  0.00009, vy: -0.00013, size: 0.48, color: [212, 168,  67], opacity: 0.13 },
+      { px: 0.88, py: 0.62, vx: -0.00007, vy: -0.00009, size: 0.40, color: [138, 100,  30], opacity: 0.24 },
+      { px: 0.12, py: 0.28, vx:  0.00006, vy:  0.00012, size: 0.35, color: [212, 168,  67], opacity: 0.10 },
+    ];
+
+    let lastTime = null;
+
+    function draw(ts) {
+      if (lastTime === null) lastTime = ts;
+      const dt = Math.min(ts - lastTime, 50);
+      lastTime = ts;
+
+      const w = canvas.width, h = canvas.height;
+
+      // Black base
+      ctx.fillStyle = '#0a0a0a';
+      ctx.fillRect(0, 0, w, h);
+
+      // Layered radial gradients
+      orbs.forEach(orb => {
+        orb.px += orb.vx * dt;
+        orb.py += orb.vy * dt;
+        if (orb.px < 0.05 || orb.px > 0.95) orb.vx *= -1;
+        if (orb.py < 0.05 || orb.py > 0.95) orb.vy *= -1;
+        orb.px = Math.max(0.05, Math.min(0.95, orb.px));
+        orb.py = Math.max(0.05, Math.min(0.95, orb.py));
+
+        const x = orb.px * w;
+        const y = orb.py * h;
+        const r = Math.min(w, h) * orb.size;
+        const [rc, gc, bc] = orb.color;
+
+        const grad = ctx.createRadialGradient(x, y, 0, x, y, r);
+        grad.addColorStop(0,   `rgba(${rc},${gc},${bc},${orb.opacity})`);
+        grad.addColorStop(0.5, `rgba(${rc},${gc},${bc},${orb.opacity * 0.3})`);
+        grad.addColorStop(1,   'rgba(0,0,0,0)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, w, h);
+      });
+
+      requestAnimationFrame(draw);
+    }
+
+    requestAnimationFrame(draw);
+  })();
 
   // Nav scroll effect
   const nav = document.querySelector('nav');

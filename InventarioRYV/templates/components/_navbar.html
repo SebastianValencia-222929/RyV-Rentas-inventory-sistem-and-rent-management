@@ -14,7 +14,7 @@
             {% if total_alertas > 0 %}
             <div class="notif-wrapper">
                 <button type="button" class="navbar-alerta-contador" id="btn-notif"
-                        aria-label="{{ total_alertas }} alertas" onclick="toggleNotif(event)">
+                        aria-label="{{ total_alertas }} notificaciones" onclick="toggleNotif(event)">
                     {{ total_alertas }}
                 </button>
                 <div class="notif-dropdown" id="notif-dropdown" style="display:none">
@@ -48,7 +48,14 @@
                     {% if solicitudes_pendientes > 0 %}
                     <div class="notif-grupo">
                         <a href="{% url 'panel_admin:solicitudes' %}" class="notif-enlace-solicitudes">
-                            {{ solicitudes_pendientes }} solicitud{{ solicitudes_pendientes|pluralize:",es" }} pendiente{{ solicitudes_pendientes|pluralize:"s" }} &rarr;
+                            {{ solicitudes_pendientes }} solicitud{{ solicitudes_pendientes|pluralize:",es" }} de empleado{{ solicitudes_pendientes|pluralize:"s" }} pendiente{{ solicitudes_pendientes|pluralize:"s" }} &rarr;
+                        </a>
+                    </div>
+                    {% endif %}
+                    {% if mis_solicitudes_pendientes > 0 %}
+                    <div class="notif-grupo">
+                        <a href="{% url 'solicitudes:mis_solicitudes' %}" class="notif-enlace-solicitudes notif-enlace-solicitudes--empleado">
+                            {{ mis_solicitudes_pendientes }} de tus solicitud{{ mis_solicitudes_pendientes|pluralize:",es" }} pendiente{{ mis_solicitudes_pendientes|pluralize:"s" }} &rarr;
                         </a>
                     </div>
                     {% endif %}

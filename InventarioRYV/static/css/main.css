@@ -1937,6 +1937,7 @@ th {
     padding: 0.2rem 0.25rem;
 }
 .notif-enlace-solicitudes:hover { text-decoration: underline; }
+.notif-enlace-solicitudes--empleado { color: #1a7a4a; }
 
 /* ===================================================
    BARRA DE ALERTAS MINIMALISTA

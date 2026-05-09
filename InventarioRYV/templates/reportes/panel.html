@@ -13,7 +13,7 @@
         <h2 class="reporte-seccion-titulo">Reporte de inventario</h2>
         <p class="reporte-descripcion">
             Genera un PDF con el estado actual de todos los equipos activos:
-            nombre, total, en renta, en mantenimiento y disponibles.
+            nombre, total de unidades, en renta, en mantenimiento y disponibles.
         </p>
         <form method="post" action="{% url 'reportes:generar_inventario' %}">
             {% csrf_token %}
@@ -24,8 +24,10 @@
     <section class="reporte-seccion">
         <h2 class="reporte-seccion-titulo">Reporte de rentas por periodo</h2>
         <p class="reporte-descripcion">
-            Genera un PDF con todas las rentas del periodo seleccionado,
-            incluyendo precio individual y total del periodo.
+            Genera un PDF con todas las rentas del periodo seleccionado.
+            Incluye equipos (con soporte para rentas con múltiples herramientas),
+            cliente, fechas, estado, precio, depósito, monto recibido, cargo por
+            daños y totales del periodo.
         </p>
         <form method="post" action="{% url 'reportes:generar_rentas' %}" class="formulario" novalidate>
             {% csrf_token %}
@@ -60,6 +62,21 @@
 
             <button type="submit" class="btn-primario">Generar PDF de rentas</button>
         </form>
+    </section>
+
+    <section class="reporte-seccion">
+        <h2 class="reporte-seccion-titulo">Comprobante de renta individual</h2>
+        <p class="reporte-descripcion">
+            Puedes descargar el comprobante PDF completo de cualquier renta —activa o finalizada—
+            directamente desde el detalle de la renta o desde el historial.<br>
+            El comprobante incluye: datos del cliente, equipos rentados, fechas,
+            resumen financiero y, si la renta está cerrada, la información de devolución
+            y condición del equipo.
+        </p>
+        <div style="display:flex;gap:.75rem;flex-wrap:wrap">
+            <a href="{% url 'rentas:lista' %}" class="btn-secundario">Ver rentas activas</a>
+            <a href="{% url 'historial:lista' %}" class="btn-secundario">Ver historial</a>
+        </div>
     </section>
 
     {% if reportes_recientes %}

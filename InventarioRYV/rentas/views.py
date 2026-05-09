@@ -14,7 +14,7 @@ from django.contrib import messages
 from django.core.paginator import Paginator
 from datetime import date
 from .models import Renta, Cliente, RentaEquipo
-from .forms import RentaForm, SolicitudRentaForm, FinalizarRentaForm, equipos_con_disponibles
+from .forms import RentaForm, SolicitudRentaForm, FinalizarRentaForm, RentaEditForm, equipos_con_disponibles
 from inventario.models import Equipo
 from authentication.decorators import admin_required, empleado_o_admin
 from solicitudes.models import Solicitud
@@ -342,7 +342,7 @@ def finalizar_renta(request, pk):
                 renta.save()
 
                 # RN-003: liberar unidades (soporta multi-equipo)
-                items = renta.items.select_related('equipo').all()
+                items = list(renta.items.select_related('equipo').all())
                 if items:
                     for item in items:
                         item.equipo.cantidad_en_renta = max(
@@ -358,7 +358,56 @@ def finalizar_renta(request, pk):
                         0, equipo.cantidad_en_renta - renta.cantidad
                     )
                     equipo.save()
+                    items = []
                     nombres = f'{renta.cantidad}x "{equipo.nombre}"'
+
+                # Ajuste de inventario por daños/pérdida
+                condicion_final = form.cleaned_data.get('condicion_devolucion', '')
+                if condicion_final and condicion_final != 'bueno':
+                    if items:
+                        for item in items:
+                            try:
+                                afectados = max(
+                                    0,
+                                    min(
+                                        int(request.POST.get(f'afectados_{item.pk}', 0)),
+                                        item.cantidad,
+                                    ),
+                                )
+                            except (ValueError, TypeError):
+                                afectados = 0
+                            destino = request.POST.get(f'destino_{item.pk}', 'eliminar')
+                            if afectados > 0:
+                                eq = item.equipo
+                                if destino == 'eliminar':
+                                    eq.cantidad_total = max(0, eq.cantidad_total - afectados)
+                                elif destino == 'mantenimiento':
+                                    eq.cantidad_en_mantenimiento = (
+                                        eq.cantidad_en_mantenimiento + afectados
+                                    )
+                                eq.save()
+                    else:
+                        # Legado: renta sin items, usa equipo principal
+                        try:
+                            afectados = max(
+                                0,
+                                min(
+                                    int(request.POST.get('afectados_legacy', 0)),
+                                    renta.cantidad,
+                                ),
+                            )
+                        except (ValueError, TypeError):
+                            afectados = 0
+                        destino = request.POST.get('destino_legacy', 'eliminar')
+                        if afectados > 0:
+                            eq = renta.equipo
+                            if destino == 'eliminar':
+                                eq.cantidad_total = max(0, eq.cantidad_total - afectados)
+                            elif destino == 'mantenimiento':
+                                eq.cantidad_en_mantenimiento = (
+                                    eq.cantidad_en_mantenimiento + afectados
+                                )
+                            eq.save()
 
                 messages.success(
                     request,
@@ -541,3 +590,81 @@ def solicitar_cierre(request, pk):
         'solicitar_cierre': True,
     }
     return render(request, 'rentas/detalle.html', contexto)
+
+
+@admin_required
+def editar_renta(request, pk):
+    """
+    Permite al Administrador modificar los datos de una renta activa.
+
+    Actualiza fechas, precio, depósito, método de pago y notas. No permite
+    editar equipos ni cliente directamente desde esta vista.
+
+    Parámetros:
+        request (HttpRequest): Solicitud HTTP.
+        pk (int): Identificador único de la renta a editar.
+
+    Retorna:
+        HttpResponse: Redirige al detalle de la renta si la edición es exitosa,
+        o renderiza el formulario con errores si la validación falla.
+    """
+    renta = get_object_or_404(Renta, pk=pk, estado='activa')
+
+    if request.method == 'POST':
+        form = RentaEditForm(request.POST, instance=renta)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Renta actualizada correctamente.')
+            return redirect('rentas:detalle', pk=renta.pk)
+    else:
+        form = RentaEditForm(instance=renta)
+
+    return render(request, 'rentas/editar.html', {
+        'form': form,
+        'renta': renta,
+    })
+
+
+@admin_required
+def eliminar_renta(request, pk):
+    """
+    Permite al Administrador eliminar una renta activa y liberar sus equipos.
+
+    Libera las unidades en renta de cada equipo asociado antes de eliminar
+    el registro. Solo acepta método POST para evitar eliminaciones accidentales.
+
+    Parámetros:
+        request (HttpRequest): Solicitud HTTP. Debe ser de método POST.
+        pk (int): Identificador único de la renta a eliminar.
+
+    Retorna:
+        HttpResponse: Redirige al listado de rentas activas si la eliminación
+        es exitosa, o al detalle si la solicitud es GET.
+    """
+    renta = get_object_or_404(Renta, pk=pk, estado='activa')
+
+    if request.method == 'POST':
+        # Liberar unidades antes de eliminar
+        items = renta.items.select_related('equipo').all()
+        if items:
+            for item in items:
+                item.equipo.cantidad_en_renta = max(
+                    0, item.equipo.cantidad_en_renta - item.cantidad
+                )
+                item.equipo.save()
+        else:
+            equipo = renta.equipo
+            equipo.cantidad_en_renta = max(
+                0, equipo.cantidad_en_renta - renta.cantidad
+            )
+            equipo.save()
+
+        nombre_cliente = renta.cliente.nombre
+        renta.delete()
+        messages.success(
+            request,
+            f'Renta de {nombre_cliente} eliminada. Unidades liberadas.',
+        )
+        return redirect('rentas:lista')
+
+    return redirect('rentas:detalle', pk=pk)

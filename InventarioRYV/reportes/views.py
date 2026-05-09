@@ -1,11 +1,12 @@
 """
 Archivo: views.py
 Descripción: Vistas para el módulo de reportes del sistema RYV Rentas.
-             Gestiona la generación y descarga de reportes PDF de inventario
-             y rentas por periodo, así como el historial de reportes generados,
-             según lo definido en RF-21 al RF-25 y RN-012 del SRS.
+             Gestiona la generación y descarga de reportes PDF de inventario,
+             rentas por periodo, comprobantes individuales de renta y el
+             historial de reportes generados, según lo definido en RF-21 al
+             RF-25 y RN-012 del SRS.
 Fecha: 2026-04-07
-Versión: 1.0
+Versión: 2.0
 """
 import datetime
 from django.shortcuts import render, get_object_or_404, redirect
@@ -13,7 +14,11 @@ from django.http import HttpResponse
 from django.contrib import messages
 from .models import ReporteGenerado
 from .forms import ReporteRentasForm
-from .generators import generar_pdf_inventario, generar_pdf_rentas
+from .generators import (
+    generar_pdf_inventario,
+    generar_pdf_rentas,
+    generar_pdf_comprobante_renta,
+)
 from inventario.models import Equipo
 from rentas.models import Renta
 from authentication.decorators import admin_required
@@ -57,20 +62,15 @@ def generar_inventario(request):
     y CU-23 del SRS.
 
     Parámetros:
-        request (HttpRequest): Solicitud HTTP. Debe ser de método POST
-        para ejecutar la generación del reporte.
+        request (HttpRequest): Solicitud HTTP. Debe ser de método POST.
 
     Retorna:
         HttpResponse: Descarga directa del archivo PDF si la generación
-        es exitosa, o redirige al panel de reportes con mensaje de error
-        si falla o si la solicitud no es POST.
+        es exitosa, o redirige al panel de reportes con mensaje de error si falla.
     """
     if request.method == 'POST':
         try:
-            equipos = Equipo.objects.filter(
-                activo=True
-            ).order_by('nombre')
-
+            equipos = Equipo.objects.filter(activo=True).order_by('nombre')
             pdf_bytes = generar_pdf_inventario(equipos)
 
             nombre_archivo = (
@@ -85,20 +85,14 @@ def generar_inventario(request):
                 archivo_nombre=nombre_archivo,
             )
 
-            response = HttpResponse(
-                pdf_bytes,
-                content_type='application/pdf',
-            )
+            response = HttpResponse(pdf_bytes, content_type='application/pdf')
             response['Content-Disposition'] = (
                 f'attachment; filename="{nombre_archivo}"'
             )
             return response
 
         except Exception:
-            messages.error(
-                request,
-                'Error al generar el reporte de inventario.',
-            )
+            messages.error(request, 'Error al generar el reporte de inventario.')
 
     return redirect('reportes:panel')
 
@@ -118,22 +112,22 @@ def generar_rentas(request):
 
     Retorna:
         HttpResponse: Descarga directa del archivo PDF si la generación
-        es exitosa, o redirige al panel de reportes con mensaje de error
-        si las fechas son inválidas o si ocurre un fallo en la generación.
+        es exitosa, o redirige al panel de reportes con mensaje de error si falla.
     """
     if request.method == 'POST':
         form = ReporteRentasForm(request.POST)
         if form.is_valid():
             try:
                 inicio = form.cleaned_data['periodo_inicio']
-                fin = form.cleaned_data['periodo_fin']
+                fin    = form.cleaned_data['periodo_fin']
 
-                rentas = Renta.objects.filter(
-                    fecha_inicio__gte=inicio,
-                    fecha_inicio__lte=fin,
-                ).select_related(
-                    'equipo', 'cliente'
-                ).order_by('fecha_inicio')
+                rentas = (
+                    Renta.objects
+                    .filter(fecha_inicio__gte=inicio, fecha_inicio__lte=fin)
+                    .select_related('equipo', 'cliente', 'registrada_por')
+                    .prefetch_related('items__equipo')
+                    .order_by('fecha_inicio')
+                )
 
                 pdf_bytes = generar_pdf_rentas(rentas, inicio, fin)
 
@@ -153,24 +147,60 @@ def generar_rentas(request):
                     periodo_fin=fin,
                 )
 
-                response = HttpResponse(
-                    pdf_bytes,
-                    content_type='application/pdf',
-                )
+                response = HttpResponse(pdf_bytes, content_type='application/pdf')
                 response['Content-Disposition'] = (
                     f'attachment; filename="{nombre_archivo}"'
                 )
                 return response
 
             except Exception:
-                messages.error(
-                    request,
-                    'Error al generar el reporte de rentas.',
-                )
+                messages.error(request, 'Error al generar el reporte de rentas.')
         else:
             messages.error(request, 'Fechas inválidas.')
 
     return redirect('reportes:panel')
+
+
+@admin_required
+def comprobante_renta(request, pk):
+    """
+    Genera y descarga el comprobante PDF completo de una renta específica.
+
+    Incluye datos del cliente, equipos rentados, fechas, resumen financiero
+    y —si la renta está finalizada— la información de devolución y condición
+    del equipo.
+
+    Parámetros:
+        request (HttpRequest): Solicitud HTTP.
+        pk (int): Identificador único de la renta.
+
+    Retorna:
+        HttpResponse: Descarga directa del archivo PDF del comprobante.
+    """
+    renta = get_object_or_404(
+        Renta.objects
+        .select_related('equipo', 'cliente', 'registrada_por')
+        .prefetch_related('items__equipo'),
+        pk=pk,
+    )
+
+    try:
+        pdf_bytes = generar_pdf_comprobante_renta(renta)
+
+        nombre_archivo = f'renta_{renta.pk}_{datetime.date.today().strftime("%Y%m%d")}.pdf'
+
+        response = HttpResponse(pdf_bytes, content_type='application/pdf')
+        response['Content-Disposition'] = (
+            f'attachment; filename="{nombre_archivo}"'
+        )
+        return response
+
+    except Exception:
+        messages.error(request, 'Error al generar el comprobante de la renta.')
+        # Redirigir al detalle correcto según el estado
+        if renta.estado == 'activa':
+            return redirect('rentas:detalle', pk=pk)
+        return redirect('historial:detalle', pk=pk)
 
 
 @admin_required
@@ -188,41 +218,38 @@ def descargar_pdf(request, pk):
 
     Retorna:
         HttpResponse: Descarga directa del archivo PDF regenerado si es exitoso,
-        o redirige al historial de reportes con mensaje de error si falla,
-        o devuelve 404 si el reporte no existe.
+        o redirige al historial de reportes con mensaje de error si falla.
     """
     reporte = get_object_or_404(ReporteGenerado, pk=pk)
 
     try:
         if reporte.tipo == 'inventario':
-            equipos = Equipo.objects.filter(
-                activo=True
-            ).order_by('nombre')
+            equipos = Equipo.objects.filter(activo=True).order_by('nombre')
             pdf_bytes = generar_pdf_inventario(equipos)
         else:
-            rentas = Renta.objects.filter(
-                fecha_inicio__gte=reporte.periodo_inicio,
-                fecha_inicio__lte=reporte.periodo_fin,
-            ).select_related('equipo', 'cliente')
+            rentas = (
+                Renta.objects
+                .filter(
+                    fecha_inicio__gte=reporte.periodo_inicio,
+                    fecha_inicio__lte=reporte.periodo_fin,
+                )
+                .select_related('equipo', 'cliente', 'registrada_por')
+                .prefetch_related('items__equipo')
+            )
             pdf_bytes = generar_pdf_rentas(
                 rentas,
                 reporte.periodo_inicio,
                 reporte.periodo_fin,
             )
 
-        response = HttpResponse(
-            pdf_bytes, content_type='application/pdf'
-        )
+        response = HttpResponse(pdf_bytes, content_type='application/pdf')
         response['Content-Disposition'] = (
             f'attachment; filename="{reporte.archivo_nombre}"'
         )
         return response
 
     except Exception:
-        messages.error(
-            request,
-            'Error al re-generar el reporte.',
-        )
+        messages.error(request, 'Error al re-generar el reporte.')
         return redirect('reportes:historial')
 
 

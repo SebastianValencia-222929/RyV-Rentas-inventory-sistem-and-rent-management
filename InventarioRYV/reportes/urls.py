@@ -17,6 +17,11 @@ urlpatterns = [
         name='generar_rentas',
     ),
     path(
+        'renta/<int:pk>/comprobante/',
+        views.comprobante_renta,
+        name='comprobante_renta',
+    ),
+    path(
         '<int:pk>/descargar/',
         views.descargar_pdf,
         name='descargar',

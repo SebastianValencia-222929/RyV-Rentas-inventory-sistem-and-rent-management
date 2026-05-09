@@ -2,7 +2,13 @@
   "permissions": {
     "allow": [
       "Read(//c/Users/LuisF/Desktop/Pruebas_incognito-Admin/**)",
-      "Read(//c/Users/LuisF/Desktop/Pruebas_incognito-Admin/InventarioRYV/**)"
+      "Read(//c/Users/LuisF/Desktop/Pruebas_incognito-Admin/InventarioRYV/**)",
+      "Bash(Scripts\\\\python.exe -c \"from reportlab.platypus import HRFlowable; print\\('HRFlowable OK'\\)\")",
+      "Bash(venv/Scripts/python.exe -c \"from reportlab.platypus import HRFlowable; print\\('HRFlowable OK'\\)\")",
+      "Bash(\"C:\\\\Users\\\\LuisF\\\\Desktop\\\\Pruebas_incognito-Admin\\\\venv\\\\Scripts\\\\python.exe\" manage.py check)",
+      "Bash(\"C:\\\\Users\\\\LuisF\\\\Desktop\\\\Pruebas_incognito-Admin\\\\venv\\\\Scripts\\\\python.exe\" manage.py show_urls)",
+      "Bash(findstr /i \"reporte comprobante\")",
+      "Bash('C:\\\\Users\\\\LuisF\\\\Desktop\\\\Pruebas_incognito-Admin\\\\venv\\\\Scripts\\\\python.exe' -c ' *)"
     ]
   }
 }

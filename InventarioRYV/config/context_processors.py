@@ -50,16 +50,31 @@ def alertas_globales(request):
     ).select_related('equipo', 'cliente')
 
     solicitudes_pendientes = 0
+    mis_solicitudes_pendientes = 0
     if request.user.es_administrador():
         solicitudes_pendientes = Solicitud.objects.filter(
             estado='pendiente'
         ).count()
+    else:
+        mis_solicitudes_pendientes = Solicitud.objects.filter(
+            solicitante=request.user,
+            estado='pendiente'
+        ).count()
+
+    cuenta_proximas = alertas_proximas.count()
+    cuenta_vencidas = alertas_vencidas.count()
+
+    # Para admin: proximas + vencidas + solicitudes pendientes de empleados
+    # Para empleado: proximas + vencidas + sus propias solicitudes pendientes
+    if request.user.es_administrador():
+        total_alertas = cuenta_proximas + cuenta_vencidas + solicitudes_pendientes
+    else:
+        total_alertas = cuenta_proximas + cuenta_vencidas + mis_solicitudes_pendientes
 
     return {
         'alertas_proximas': alertas_proximas,
         'alertas_vencidas': alertas_vencidas,
-        'total_alertas': (
-            alertas_proximas.count() + alertas_vencidas.count()
-        ),
+        'total_alertas': total_alertas,
         'solicitudes_pendientes': solicitudes_pendientes,
+        'mis_solicitudes_pendientes': mis_solicitudes_pendientes,
     }

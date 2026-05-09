@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+
+{% block title %}Editar renta #{{ renta.pk }} — RYV Rentas{% endblock %}
+
+{% block content %}
+<div class="pagina-encabezado">
+    <div class="encabezado-izquierda">
+        <a href="{% url 'rentas:detalle' renta.pk %}" class="enlace-volver">&larr; Volver al detalle</a>
+        <h1 class="pagina-titulo">Editar renta #{{ renta.pk }}</h1>
+    </div>
+</div>
+
+<div class="formulario-contenedor">
+    <form method="post" class="formulario" novalidate>
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+        <div class="campo-errores-globales">
+            {% for error in form.non_field_errors %}
+            <p class="campo-error">{{ error }}</p>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <fieldset class="formulario-fieldset">
+            <legend class="formulario-fieldset-titulo">Fechas</legend>
+
+            <div class="campo-grupo{% if form.fecha_inicio.errors %} campo-grupo--error{% endif %}">
+                <label for="{{ form.fecha_inicio.id_for_label }}" class="campo-etiqueta">
+                    {{ form.fecha_inicio.label }} <span class="campo-requerido">*</span>
+                </label>
+                {{ form.fecha_inicio }}
+                {% for error in form.fecha_inicio.errors %}
+                <p class="campo-error">{{ error }}</p>
+                {% endfor %}
+            </div>
+
+            <div class="campo-grupo{% if form.fecha_vencimiento.errors %} campo-grupo--error{% endif %}">
+                <label for="{{ form.fecha_vencimiento.id_for_label }}" class="campo-etiqueta">
+                    {{ form.fecha_vencimiento.label }} <span class="campo-requerido">*</span>
+                </label>
+                {{ form.fecha_vencimiento }}
+                {% for error in form.fecha_vencimiento.errors %}
+                <p class="campo-error">{{ error }}</p>
+                {% endfor %}
+            </div>
+        </fieldset>
+
+        <fieldset class="formulario-fieldset">
+            <legend class="formulario-fieldset-titulo">Pago</legend>
+
+            <div class="campo-grupo{% if form.precio.errors %} campo-grupo--error{% endif %}">
+                <label for="{{ form.precio.id_for_label }}" class="campo-etiqueta">
+                    {{ form.precio.label }} <span class="campo-requerido">*</span>
+                </label>
+                {{ form.precio }}
+                {% for error in form.precio.errors %}
+                <p class="campo-error">{{ error }}</p>
+                {% endfor %}
+            </div>
+
+            <div class="campo-grupo{% if form.deposito.errors %} campo-grupo--error{% endif %}">
+                <label for="{{ form.deposito.id_for_label }}" class="campo-etiqueta">
+                    {{ form.deposito.label }}
+                </label>
+                {{ form.deposito }}
+                {% for error in form.deposito.errors %}
+                <p class="campo-error">{{ error }}</p>
+                {% endfor %}
+            </div>
+
+            <div class="campo-grupo{% if form.metodo_pago.errors %} campo-grupo--error{% endif %}">
+                <label for="{{ form.metodo_pago.id_for_label }}" class="campo-etiqueta">
+                    {{ form.metodo_pago.label }}
+                </label>
+                {{ form.metodo_pago }}
+                {% for error in form.metodo_pago.errors %}
+                <p class="campo-error">{{ error }}</p>
+                {% endfor %}
+            </div>
+        </fieldset>
+
+        <fieldset class="formulario-fieldset">
+            <legend class="formulario-fieldset-titulo">Notas</legend>
+
+            <div class="campo-grupo{% if form.notas.errors %} campo-grupo--error{% endif %}">
+                <label for="{{ form.notas.id_for_label }}" class="campo-etiqueta">
+                    {{ form.notas.label }}
+                </label>
+                {{ form.notas }}
+                {% for error in form.notas.errors %}
+                <p class="campo-error">{{ error }}</p>
+                {% endfor %}
+            </div>
+        </fieldset>
+
+        <div class="formulario-acciones">
+            <button type="submit" class="btn-primario">Guardar cambios</button>
+            <a href="{% url 'rentas:detalle' renta.pk %}" class="btn-secundario">Cancelar</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

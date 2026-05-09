@@ -12,8 +12,22 @@
         </h1>
     </div>
     <div class="pagina-acciones">
-        {% if renta.estado == 'activa' and not request.user.es_administrador %}
-            <a href="{% url 'rentas:solicitar_cierre' renta.pk %}" class="btn-secundario">Solicitar cierre</a>
+        {% if request.user.es_administrador %}
+            <a href="{% url 'reportes:comprobante_renta' renta.pk %}" class="btn-secundario" title="Descargar PDF completo de esta renta">
+                ↓ Descargar comprobante
+            </a>
+        {% endif %}
+        {% if renta.estado == 'activa' %}
+            {% if request.user.es_administrador %}
+                <a href="{% url 'rentas:editar' renta.pk %}" class="btn-secundario">Editar renta</a>
+                <form method="post" action="{% url 'rentas:eliminar' renta.pk %}" style="display:inline"
+                      onsubmit="return confirm('¿Seguro que deseas eliminar esta renta?\nSe liberarán las unidades en inventario y no podrá deshacerse.')">
+                    {% csrf_token %}
+                    <button type="submit" class="btn-peligro">Eliminar renta</button>
+                </form>
+            {% else %}
+                <a href="{% url 'rentas:solicitar_cierre' renta.pk %}" class="btn-secundario">Solicitar cierre</a>
+            {% endif %}
         {% endif %}
     </div>
 </div>
@@ -88,10 +102,8 @@
             <dd class="detalle-valor">{{ renta.cliente.nombre }}</dd>
             <dt class="detalle-etiqueta">Teléfono</dt>
             <dd class="detalle-valor">{{ renta.cliente.telefono }}</dd>
-            {% if renta.cliente.direccion %}
             <dt class="detalle-etiqueta">Dirección</dt>
-            <dd class="detalle-valor">{{ renta.cliente.direccion }}</dd>
-            {% endif %}
+            <dd class="detalle-valor">{{ renta.cliente.direccion|default:"—" }}</dd>
             {% if renta.cliente.correo %}
             <dt class="detalle-etiqueta">Correo</dt>
             <dd class="detalle-valor">{{ renta.cliente.correo }}</dd>
@@ -249,6 +261,72 @@
                 {% endif %}
             </div>
 
+            {# Ajuste de inventario por daños — visible si condición != bueno #}
+            <div id="seccion-ajuste-inventario" style="display:none">
+                <h3 class="campo-etiqueta" style="margin-bottom:.5rem">
+                    Ajuste de inventario
+                </h3>
+                <p class="campo-ayuda" style="margin-bottom:.75rem">
+                    Indica cuántas unidades resultaron afectadas y qué hacer con ellas.
+                    Deja en 0 si ninguna unidad se elimina ni va a mantenimiento.
+                </p>
+                <table class="tabla-equipos-renta">
+                    <thead>
+                        <tr>
+                            <th>Equipo</th>
+                            <th>Cant. rentada</th>
+                            <th>Unidades afectadas</th>
+                            <th>Destino</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% with items=renta.items.all %}
+                        {% if items %}
+                            {% for item in items %}
+                            <tr>
+                                <td>{{ item.equipo.nombre }}</td>
+                                <td>{{ item.cantidad }}</td>
+                                <td>
+                                    <input type="number"
+                                           name="afectados_{{ item.pk }}"
+                                           min="0" max="{{ item.cantidad }}"
+                                           value="0"
+                                           class="input-campo"
+                                           style="width:80px">
+                                </td>
+                                <td>
+                                    <select name="destino_{{ item.pk }}" class="input-campo">
+                                        <option value="eliminar">Eliminar del inventario</option>
+                                        <option value="mantenimiento">Enviar a mantenimiento</option>
+                                    </select>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td>{{ renta.equipo.nombre }}</td>
+                                <td>{{ renta.cantidad }}</td>
+                                <td>
+                                    <input type="number"
+                                           name="afectados_legacy"
+                                           min="0" max="{{ renta.cantidad }}"
+                                           value="0"
+                                           class="input-campo"
+                                           style="width:80px">
+                                </td>
+                                <td>
+                                    <select name="destino_legacy" class="input-campo">
+                                        <option value="eliminar">Eliminar del inventario</option>
+                                        <option value="mantenimiento">Enviar a mantenimiento</option>
+                                    </select>
+                                </td>
+                            </tr>
+                        {% endif %}
+                        {% endwith %}
+                    </tbody>
+                </table>
+            </div>
+
             {# Sección de pago #}
             <div id="seccion-pago">
                 <div class="campo-grupo">
@@ -351,12 +429,15 @@
         var campoCargo = document.getElementById('campo-cargo-daños');
         var errCargo = document.getElementById('error-cargo');
         var errCond = document.getElementById('error-condicion');
+        var seccionAjuste = document.getElementById('seccion-ajuste-inventario');
         if (errCond) errCond.style.display = 'none';
 
         if (val === 'daños_menores' || val === 'inservible' || val === 'extraviado') {
             campoCargo.style.display = 'block';
+            if (seccionAjuste) seccionAjuste.style.display = 'block';
         } else {
             campoCargo.style.display = 'none';
+            if (seccionAjuste) seccionAjuste.style.display = 'none';
             var cargoInput = document.getElementById('id_cargo_daños');
             if (cargoInput) cargoInput.value = '';
             if (errCargo) errCargo.style.display = 'none';

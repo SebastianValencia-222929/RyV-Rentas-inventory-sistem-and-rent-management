@@ -10,9 +10,16 @@ Versión: 1.0
 """
 from decimal import Decimal
 from django import forms
+from django.core.validators import RegexValidator
 from django.db.models import F, ExpressionWrapper, IntegerField
 from .models import Renta, Cliente
 from inventario.models import Equipo
+
+# Validador reutilizable: solo dígitos, entre 7 y 15 caracteres
+_telefono_validator = RegexValidator(
+    regex=r'^\d{7,15}$',
+    message='El teléfono debe contener solo dígitos (entre 7 y 15).',
+)
 
 
 def equipos_con_disponibles():
@@ -58,11 +65,18 @@ class RentaForm(forms.ModelForm):
     )
     cliente_telefono = forms.CharField(
         label='Teléfono del cliente',
-        widget=forms.TextInput(attrs={'class': 'input-campo'}),
+        validators=[_telefono_validator],
+        widget=forms.TextInput(attrs={
+            'class': 'input-campo',
+            'type': 'tel',
+            'inputmode': 'numeric',
+            'pattern': r'\d{7,15}',
+            'placeholder': 'Ej. 5512345678',
+            'maxlength': '15',
+        }),
     )
     cliente_direccion = forms.CharField(
-        label='Dirección (opcional)',
-        required=False,
+        label='Dirección',
         widget=forms.TextInput(attrs={'class': 'input-campo'}),
     )
     cliente_correo = forms.EmailField(
@@ -189,11 +203,18 @@ class SolicitudRentaForm(forms.Form):
     )
     cliente_telefono = forms.CharField(
         label='Teléfono del cliente',
-        widget=forms.TextInput(attrs={'class': 'input-campo'}),
+        validators=[_telefono_validator],
+        widget=forms.TextInput(attrs={
+            'class': 'input-campo',
+            'type': 'tel',
+            'inputmode': 'numeric',
+            'pattern': r'\d{7,15}',
+            'placeholder': 'Ej. 5512345678',
+            'maxlength': '15',
+        }),
     )
     cliente_direccion = forms.CharField(
-        label='Dirección (opcional)',
-        required=False,
+        label='Dirección',
         widget=forms.TextInput(attrs={'class': 'input-campo'}),
     )
     cliente_correo = forms.EmailField(
@@ -303,6 +324,59 @@ class SolicitudRentaForm(forms.Form):
                     'Selecciona el método de pago del depósito.',
                 )
 
+        return cleaned
+
+
+class RentaEditForm(forms.ModelForm):
+    """
+    Formulario para editar datos básicos de una renta activa (admin).
+
+    Sobreescribe los campos de fecha para garantizar que el formato YYYY-MM-DD
+    enviado por los inputs HTML de tipo date sea interpretado correctamente,
+    independientemente de la configuración regional del servidor.
+    """
+
+    # Sobreescribir campos de fecha para fijar input_formats y evitar
+    # problemas de parseo con USE_L10N activado.
+    fecha_inicio = forms.DateField(
+        label='Fecha de inicio',
+        input_formats=['%Y-%m-%d'],
+        widget=forms.DateInput(
+            attrs={'class': 'input-campo', 'type': 'date'},
+            format='%Y-%m-%d',
+        ),
+    )
+    fecha_vencimiento = forms.DateField(
+        label='Fecha de vencimiento',
+        input_formats=['%Y-%m-%d'],
+        widget=forms.DateInput(
+            attrs={'class': 'input-campo', 'type': 'date'},
+            format='%Y-%m-%d',
+        ),
+    )
+
+    class Meta:
+        model = Renta
+        fields = ['fecha_inicio', 'fecha_vencimiento', 'precio', 'deposito', 'metodo_pago', 'notas']
+        widgets = {
+            'precio': forms.NumberInput(attrs={'class': 'input-campo', 'step': '0.01'}),
+            'deposito': forms.NumberInput(attrs={'class': 'input-campo', 'step': '0.01'}),
+            'metodo_pago': forms.Select(attrs={'class': 'input-campo'}),
+            'notas': forms.Textarea(attrs={'class': 'input-campo', 'rows': 2}),
+        }
+        labels = {
+            'precio': 'Precio total (MXN)',
+            'deposito': 'Depósito (MXN)',
+            'metodo_pago': 'Método de pago del depósito',
+            'notas': 'Notas (opcional)',
+        }
+
+    def clean(self):
+        cleaned = super().clean()
+        inicio = cleaned.get('fecha_inicio')
+        vencimiento = cleaned.get('fecha_vencimiento')
+        if inicio and vencimiento and vencimiento <= inicio:
+            raise forms.ValidationError('La fecha de vencimiento debe ser posterior a la de inicio.')
         return cleaned
 
 

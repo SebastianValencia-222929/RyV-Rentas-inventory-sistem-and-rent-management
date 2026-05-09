@@ -11,19 +11,49 @@
             <span class="badge-estado badge-estado--{{ renta.estado }}">{{ renta.get_estado_display }}</span>
         </h1>
     </div>
+    <div class="pagina-acciones">
+        {% if request.user.es_administrador %}
+        <a href="{% url 'reportes:comprobante_renta' renta.pk %}" class="btn-secundario"
+           title="Descargar PDF completo de esta renta">
+            ↓ Descargar comprobante
+        </a>
+        {% endif %}
+    </div>
 </div>
 
 <div class="detalle-contenedor">
+
     <section class="detalle-seccion">
-        <h2 class="detalle-seccion-titulo">Equipo rentado</h2>
+        <h2 class="detalle-seccion-titulo">Equipo{% if renta.items.all|length > 1 %}s{% endif %} rentado{% if renta.items.all|length > 1 %}s{% endif %}</h2>
+        {% with items=renta.items.all %}
+        {% if items %}
+        <table class="tabla-equipos-renta">
+            <thead>
+                <tr>
+                    <th>Equipo</th>
+                    <th>Cantidad</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in items %}
+                <tr>
+                    <td><a href="{% url 'inventario:detalle' item.equipo.pk %}">{{ item.equipo.nombre }}</a></td>
+                    <td>{{ item.cantidad }} unidad{% if item.cantidad != 1 %}es{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
         <dl class="detalle-lista">
             <dt class="detalle-etiqueta">Equipo</dt>
             <dd class="detalle-valor">
                 <a href="{% url 'inventario:detalle' renta.equipo.pk %}">{{ renta.equipo.nombre }}</a>
             </dd>
             <dt class="detalle-etiqueta">Cantidad rentada</dt>
-            <dd class="detalle-valor">{{ renta.cantidad }} unidad(es)</dd>
+            <dd class="detalle-valor">{{ renta.cantidad }} unidad{% if renta.cantidad != 1 %}es{% endif %}</dd>
         </dl>
+        {% endif %}
+        {% endwith %}
     </section>
 
     <section class="detalle-seccion">
@@ -33,10 +63,8 @@
             <dd class="detalle-valor">{{ renta.cliente.nombre }}</dd>
             <dt class="detalle-etiqueta">Teléfono</dt>
             <dd class="detalle-valor">{{ renta.cliente.telefono }}</dd>
-            {% if renta.cliente.direccion %}
             <dt class="detalle-etiqueta">Dirección</dt>
-            <dd class="detalle-valor">{{ renta.cliente.direccion }}</dd>
-            {% endif %}
+            <dd class="detalle-valor">{{ renta.cliente.direccion|default:"—" }}</dd>
             {% if renta.cliente.correo %}
             <dt class="detalle-etiqueta">Correo</dt>
             <dd class="detalle-valor">{{ renta.cliente.correo }}</dd>
@@ -68,7 +96,7 @@
             <dt class="detalle-etiqueta">Cambio devuelto al cliente</dt>
             <dd class="detalle-valor detalle-valor--monto">
                 <span style="color:#1e8449;font-weight:700">${{ renta.sobrante_deposito }}</span>
-                <small style="color:#777"> (depósito pagado de más)</small>
+                <small style="color:#777"> (depósito mayor al precio)</small>
             </dd>
             {% else %}
             <dt class="detalle-etiqueta">Saldo pendiente</dt>
@@ -117,5 +145,6 @@
             {% endif %}
         </dl>
     </section>
+
 </div>
 {% endblock %}
